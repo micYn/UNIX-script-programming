@@ -1,0 +1,122 @@
+#!/usr/bin/tcsh
+source colors
+
+# If colors aren't printing, try uncommenting this line:
+# set Macintosh
+
+#The following lines are the same as colorechousingswitch (and are explained there):
+if ( $?Macintosh ) then
+    alias eco '(printf "%b " \!:*)|rev|cut -c2-|rev'
+    echo -n eco\  > echoline
+else
+    echo -n echo\  > echoline
+endif
+
+foreach i ( `seq $#` )		# This goes through the args, BUT we need to know the position
+    set argument = $argv[$i]	# Since foreach got the position, now use it to get the argument
+    
+    if ( X$argument == X- ) then	# Deals with the case that the argument is just a "-"	
+    	echo -n - >> echoline
+    	
+    else if ( X$argument == X-n ) then		# Deals with the case that the argument is a "-n"
+    	(echo -n -;echo n) >> echoline  	# Outputs of both of the echoes get redirected by ">>"
+    	
+    else if ( X$argument !~ X-[roygbpcmwy] && X$argument !~ X--* ) then
+    	# Deals with any arguments that are neither:
+        # - One of our one letter flags (-r, -o, -y, -g, -b, -p, -c, -m, -w, -y)
+        # nor
+        # - A a "--" argument. For example: --pink, --r, etc
+        #
+        # In other words, arguments like pink, red, blue will be handled here
+        
+    	echo -n $argument\  >> echoline
+    	
+    else
+    	# One letter arguent and argument starting with -- will be handled here
+    	
+    	set newarg = `echo "$argument" | tr -d '-'`	# This removes all "-"s from the argument, cuz we don't need them below.
+    	
+        if ( ($newarg =~ [lbd][brycgmopw]*)&&($newarg !~ bro*)&&($newarg !~ bri*) ) then
+		# This if clause catches those argument that its first letter(l, b, d)should be expanded to make it has
+		# light, bright, dark without abbreviation as their prefix, 
+		# namely those arguments having this pattern: [lbd][brycgmopw]*
+		# But this pattern has some flaws, unfortunately, 
+		# for example it matches bro* but bro* shouldn't be expanded into brightro, but stay as brown instead.
+		# On top of that, bri* is also unwanted, because arguments in bri* pattern are already in full form.
+		
+		set first_letter = `echo $newarg | cut -c1`		# Get the first letter of the argument
+		switch ( $first_letter )	# Set adjective based on first letter
+			case l:
+				set adjective = light; breaksw
+			case b:
+				set adjective = bright; breaksw
+			case d:
+				set adjective = dark; breaksw
+		endsw
+			
+	    	set letter_array = `echo $newarg | grep -o '.'`		# Get each letter in the argument and make it an array
+
+	    	set combined_word = $adjective	
+		foreach index ( `seq 2 $#letter_array` )
+			set combined_word = ${combined_word}${letter_array[$index]}
+		end
+		# Now if the argument targeted by the if clause, 
+		# its first letter is expanded into full form(bright, light, dark) and stored in variable "combined_word"
+    	else
+    		set combined_word = $newarg		# If the current argument do not need this kind of expansion, 
+    							# leave it unchanged and also store it in combined_word for future convenience
+	endif
+    
+    
+    	# Now we begin to deal with those argument(now stored in variable combined_word) which postfix has to be expanded, for example, brightr->brightred, r->red, etc.
+    	
+        set last_char = `echo $combined_word | tail -c 2 | head -c 1`	# Get the last letter of the argument
+        
+        set letter_count = `echo $combined_word | wc -c`	# Count the # of letters in the argument
+        @ letter_count = $letter_count - 1					# we don't want to count '\n'
+        
+        set secondlast_char = ""																					
+	if ( $letter_count > 1 )	set secondlast_char = `echo $combined_word | tail -c 3 | head -c 1`		# Get the second last letter if exists (otherwise empty string)
+		
+	# Preparation complete, now starts expanding the postfix of argument if it needs to be expanded(this can be tricky for some colors):
+	if ( $last_char == r )	set combined_word = ${combined_word}ed
+		   
+    	if ( $last_char == o )	set combined_word = ${combined_word}range
+    	
+    	if ( $last_char == g )	set combined_word = ${combined_word}reen
+    	
+	if ( $last_char == b )	set combined_word = ${combined_word}lue
+		
+    	if ( $last_char == p )	set combined_word = ${combined_word}urple
+    	
+    	if ( $last_char == c )	set combined_word = ${combined_word}yan
+    	
+    	if ( $last_char == m )	set combined_word = ${combined_word}agenta
+    	
+    	if ( ( $last_char == y ) && ( $letter_count > 1 ) && ( $secondlast_char != a ) && ( $secondlast_char != e ) )	set combined_word = ${combined_word}ellow
+    	if ( ( $last_char == y ) && ( $letter_count == 1 ) )	set combined_word = ${combined_word}ellow
+    	
+    	if ( ( $last_char == w ) && ( $letter_count > 1 ) && ( $secondlast_char != o ) )	set combined_word = ${combined_word}hite
+    	if ( ( $last_char == w ) && ( $letter_count == 1 ) )	set combined_word = ${combined_word}hite
+    	
+    	# Dealing with some synonyms:
+        if( $combined_word == lightwhite )	set combined_word = white
+        
+        if( $combined_word =~ *grey )	set combined_word = `echo $combined_word | tr 'e' 'a'`
+        
+        if( $combined_word =~ *magenta )	set combined_word = `echo $combined_word | tr 'm' ' ' | cut -d' ' -f1`"purple" 
+
+		# if combined_word is "pink", it would be "echo $pink" in echoline
+        echo -n '"$'$combined_word'"' >> echoline
+        continue
+    endif
+
+    if ( $i != $# ) echo -n " " >> echoline		# This should be placed after "source echoline"(line 118) ?
+end
+
+
+source echoline
+#if ( $i != $# ) echo -n " " >> echoline
+cat echoline | cut -d\  --complement -f1    >> colorechoout; rm -f echoline
+echo -n "$reset"
+

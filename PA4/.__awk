@@ -1,0 +1,42 @@
+BEGIN{
+  F["i"]=1
+  F["o"]=1
+  F["n"]=1
+  E[1]="[wW][oO][rR][lL][dD]"
+}
+(ARGC>2)&&(FNR==1) { L=FILENAME":" }
+"n" in F           { L=L""FNR":" }
+1 {
+    remains = $0
+    while (1) {
+        match_start = 0; match_end = 0; matched = 0 # Initialize variables for the loop
+        for (i in E) {
+            regex = bef E[i] aft
+            if (match(remains, regex)) {
+                start = RSTART
+                end = RSTART + RLENGTH - 1
+                if (matched == 0 || (start < match_start) || (start == match_start && end > match_end)) {
+                    match_start = start
+                    match_end = end
+                    matched = 1
+                }
+            }
+        }
+        if ("v" in F) {if (!matched) {print ((("n" in F) ? FNR ":" : "") remains)}break}
+        if (!matched) {break}
+        if ("o" in F) {
+            matched_text = substr(remains, match_start, match_end - match_start + 1)
+            if ("w" in F) {
+                if (match(matched_text, bef ".*" aft)) {
+                    print ((("n" in F) ? FNR ":" : "") substr(matched_text, RSTART + length(bef), RLENGTH - length(bef) - length(aft)))
+                }
+            } else {
+                print ((("n" in F) ? FNR ":" : "") matched_text)
+            }
+        } else {
+            print ((("n" in F) ? FNR ":" : "") remains)
+            break
+        }
+        remains = substr(remains, match_end + 1) # Advance past the match
+    }
+  }

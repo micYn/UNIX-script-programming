@@ -1,0 +1,33 @@
+#!/usr/bin/tcsh
+echo -n > file
+
+foreach A ( `seq $#` )
+    echo "X$argv[$A]" | sed 's/X\(.*\)/\1/;' >> file
+end
+
+cat file | sed '/\(-[vinow][vinow]*\)\(e[vinow]*\)/s//\1\n-\2/;/\(-[vinow][vinow]*\)\([vinow]\)/s//\1\n-\2/;:L;s/\(.*-[vinow]\)\([vinow].*\n-\)/\1\n-\2/;tL;/^-e$/{N;s/\n//;};' | sed 'H;$\!d;$x;/-e/\!s/\n\([^-].*\)/\n-e\1/;s/\n//;' > file2
+#cat file2
+if ( ! { grep -q '^-e' file2 } ) then
+   echo 'Usage: ./grep [OPTION]... PATTERNS [FILE]...'
+   rm -f .__args[12] .__redirect[12]
+   exit 1
+endif
+grep -v ^\[^-] file2 | ./sed2sed.sed > file
+
+set words = ( `grep '^[^-]' file2` )
+echo $words
+if ( $#words == 0 ) then
+   # If the array is empty, then no file name was passed-in. That means
+   # that the input data is being streamed in through a pipe or redirect.
+   # The following line puts the stream into a file, .__redirect1: 
+   cat > .__redirect1
+   # Now that the input is in a file, its name can store into the array:
+   set words = ( .__redirect1 )
+endif
+
+set FN
+foreach word ( $words ) 
+	if ( $#words > 1) set FN = $word\:
+	cat $word | sed -f file | sed "/^=/{n;s/.*/linenumber:&/;p;d;};/^=/\!s/.*/$FN&/;"
+end
+	
